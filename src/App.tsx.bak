@@ -1,0 +1,266 @@
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+
+type AuthMode = "login" | "register";
+type Step = "username" | "password" | "profile" | "welcome";
+
+const usernamePattern = /^[a-zA-Z0-9._]{5,32}$/;
+
+export default function App() {
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [step, setStep] = useState<Step>("username");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [showGreeting,setShowGreeting]=useState(true);
+
+  const validUsername = useMemo(
+    () => usernamePattern.test(username),
+    [username],
+  );
+
+  const validPassword = password.length >= 6;
+
+  const switchMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setStep("username");
+    setUsername("");
+    setPassword("");
+    setName("");
+  };
+
+  const continueFromUsername = () => {
+    if (validUsername) {
+      setStep("password");
+    }
+  };
+
+  const continueFromPassword = () => {
+    if (!validPassword) return;
+
+    if (mode === "register") {
+      setStep("profile");
+    } else {
+      setName(username);
+      setStep("welcome");
+    }
+  };
+
+  const finishProfile = () => {
+    if (!name.trim()) return;
+    setStep("welcome");
+  };
+
+  useEffect(()=>{if(step==="welcome"){const t=setTimeout(()=>setShowGreeting(false),2000);return ()=>clearTimeout(t)}},[step]);
+
+  const goBack = () => {
+    if (step === "password") {
+      setStep("username");
+      setPassword("");
+    } else if (step === "profile") {
+      setStep("password");
+    }
+  };
+
+  if (step === "welcome") {
+    const chats=[{n:"Official",m:"Добро пожаловать",t:"16:42",u:1},{n:"Admin",m:"Обновление",t:"15:08",u:2},{n:"Test",m:"Привет!",t:"12:41",u:0},{n:"Support",m:"Спасибо",t:"Вчера",u:3}];
+    return (<main className="messenger"><AnimatePresence>{showGreeting&&<motion.div className="greeting-overlay" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0,filter:"blur(10px)"}} transition={{duration:.8}}><div className="greeting-card">{mode==="login"?`С возвращением, ${name}`:`Здравствуйте, ${name}`}</div></motion.div>}</AnimatePresence><aside className="chat-sidebar"><div className="sidebar-header"><h2>Share</h2></div><div className="chat-list">{chats.map(c=><div className="chat-item" key={c.n}><div className="chat-avatar">{c.n[0]}</div><div className="chat-info"><div className="chat-top"><b>{c.n}</b><span>{c.t}</span></div><div className="chat-bottom"><span>{c.m}</span>{c.u? <span className="unread">{c.u}</span>:null}</div></div></div>)}</div></aside><section className="chat-view"><h1>Выберите чат</h1></section></main>);
+  }
+
+  return (
+    <main className="auth-page">
+      <section className="auth-shell" aria-label="Share authentication">
+        <motion.div
+          className="brand"
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          Share
+        </motion.div>
+
+        <AnimatePresence mode="wait" initial={false}>
+          {step === "username" && (
+            <motion.div
+              key="username"
+              className="auth-stage"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -35 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+            >
+              <div className="mode-switch" role="tablist">
+                <motion.div
+                  className="mode-pill"
+                  animate={{ x: mode === "login" ? 0 : "100%" }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 420,
+                    damping: 34,
+                    mass: 0.7,
+                  }}
+                />
+
+                <button
+                  className={`mode-button ${mode === "login" ? "active" : ""}`}
+                  onClick={() => switchMode("login")}
+                  role="tab"
+                  aria-selected={mode === "login"}
+                >
+                  Вход
+                </button>
+
+                <button
+                  className={`mode-button ${mode === "register" ? "active" : ""}`}
+                  onClick={() => switchMode("register")}
+                  role="tab"
+                  aria-selected={mode === "register"}
+                >
+                  Регистрация
+                </button>
+              </div>
+
+              <div className="auth-form">
+                <h1>
+                  {mode === "login"
+                    ? "Введите свой username для входа"
+                    : "Введите свой username для регистрации"}
+                </h1>
+
+                <label className="input-field">
+                  <span>@</span>
+                  <input
+                    value={username}
+                    onChange={(event) =>
+                      setUsername(
+                        event.target.value
+                          .replace(/^@+/, "")
+                          .replace(/[^a-zA-Z0-9._]/g, "")
+                          .slice(0, 32),
+                      )
+                    }
+                    placeholder="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="username"
+                    spellCheck={false}
+                    maxLength={32}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") continueFromUsername();
+                    }}
+                  />
+                </label>
+
+                <button
+                  className={`continue-button ${validUsername ? "enabled" : ""}`}
+                  disabled={!validUsername}
+                  onClick={continueFromUsername}
+                >
+                  Продолжить
+                </button>
+
+                <p className="hint">
+                  От 5 до 32 символов · латинские буквы, цифры, «_» и «.»
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {step === "password" && (
+            <motion.div
+              key="password"
+              className="auth-stage password-stage"
+              initial={{ opacity: 0, x: 35 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -35 }}
+              transition={{ duration: 0.26, ease: "easeOut" }}
+            >
+              <button className="back-button" onClick={goBack}>
+                ‹
+              </button>
+
+              <div className="auth-form">
+                <div className="username-preview">@{username}</div>
+
+                <h1>
+                  {mode === "login"
+                    ? "Введите свой пароль"
+                    : "Придумайте пароль"}
+                </h1>
+
+                <label className="input-field">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Пароль"
+                    autoComplete={
+                      mode === "login" ? "current-password" : "new-password"
+                    }
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") continueFromPassword();
+                    }}
+                  />
+                </label>
+
+                <button
+                  className={`continue-button ${validPassword ? "enabled" : ""}`}
+                  disabled={!validPassword}
+                  onClick={continueFromPassword}
+                >
+                  Продолжить
+                </button>
+
+                <p className="hint">Минимум 6 символов</p>
+              </div>
+            </motion.div>
+          )}
+
+          {step === "profile" && (
+            <motion.div
+              key="profile"
+              className="auth-stage profile-stage"
+              initial={{ opacity: 0, x: 35 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -35 }}
+              transition={{ duration: 0.26, ease: "easeOut" }}
+            >
+              <button className="back-button" onClick={goBack}>
+                ‹
+              </button>
+
+              <div className="auth-form">
+                <div className="avatar-placeholder">+</div>
+
+                <h1>Как вас зовут?</h1>
+
+                <label className="input-field">
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Ваше имя"
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") finishProfile();
+                    }}
+                  />
+                </label>
+
+                <button
+                  className={`continue-button ${name.trim() ? "enabled" : ""}`}
+                  disabled={!name.trim()}
+                  onClick={finishProfile}
+                >
+                  Продолжить
+                </button>
+
+                <p className="hint">Аватар и описание добавим следующим шагом</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+    </main>
+  );
+}
